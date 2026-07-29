@@ -2,7 +2,7 @@
    Caches the app shell so the player opens with no network at all.
    Your songs are not cached here -- they live in IndexedDB. */
 
-const CACHE = 'sherry-player-v1';
+const CACHE = 'sherry-player-v2';
 
 const SHELL = [
   './',
@@ -12,7 +12,8 @@ const SHELL = [
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
-  './icon-maskable-512.png'
+  './icon-maskable-512.png',
+  './icon-apple-180.png'
 ];
 
 self.addEventListener('install', (e) => {

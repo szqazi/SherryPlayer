@@ -46,12 +46,16 @@ button, input { font-family: inherit; }
   position: relative;
 }
 
+/* iPhone notch / home indicator. These resolve to 0 everywhere else. */
+:root { --safe-b: env(safe-area-inset-bottom, 0px); }
+
 #main {
   flex: 1;
-  padding: 18px 18px calc(var(--tabbar-h) + var(--mini-h) + 24px);
+  padding: calc(18px + env(safe-area-inset-top, 0px)) 18px
+           calc(var(--tabbar-h) + var(--mini-h) + var(--safe-b) + 24px);
   overflow-y: auto;
 }
-body.no-mini #main { padding-bottom: calc(var(--tabbar-h) + 24px); }
+body.no-mini #main { padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + 24px); }
 
 .screen-head h1 {
   margin: 4px 0 2px;
@@ -267,7 +271,7 @@ input[type=range]:hover::-webkit-slider-thumb { background: var(--accent); }
 
 /* ---------------- Mini bar ---------------- */
 #minibar {
-  position: fixed; left: 0; right: 0; bottom: var(--tabbar-h);
+  position: fixed; left: 0; right: 0; bottom: calc(var(--tabbar-h) + var(--safe-b));
   max-width: 720px; margin: 0 auto; height: var(--mini-h);
   background: var(--bg-3); border-top: 1px solid var(--line);
   display: flex; align-items: center; gap: 10px; padding: 0 12px;
@@ -292,10 +296,13 @@ input[type=range]:hover::-webkit-slider-thumb { background: var(--accent); }
 /* ---------------- Tab bar ---------------- */
 #tabbar {
   position: fixed; left: 0; right: 0; bottom: 0;
-  max-width: 720px; margin: 0 auto; height: var(--tabbar-h);
+  max-width: 720px; margin: 0 auto;
+  /* box-sizing is border-box, so the inset must extend the height rather
+     than eat into it -- otherwise the buttons squash on an iPhone. */
+  height: calc(var(--tabbar-h) + var(--safe-b));
+  padding-bottom: var(--safe-b);
   background: #0a0b0e; border-top: 1px solid var(--line);
   display: flex; z-index: 50;
-  padding-bottom: env(safe-area-inset-bottom);
 }
 .tab {
   flex: 1; background: none; border: none; cursor: pointer;
@@ -358,7 +365,7 @@ input[type=range]:hover::-webkit-slider-thumb { background: var(--accent); }
 
 #toast {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(var(--tabbar-h) + var(--mini-h) + 16px);
+  bottom: calc(var(--tabbar-h) + var(--mini-h) + var(--safe-b) + 16px);
   background: #22262f; border: 1px solid var(--line);
   color: var(--text); padding: 11px 18px; border-radius: 999px;
   font-size: 13.5px; z-index: 150; box-shadow: 0 8px 24px rgba(0,0,0,.5);
