@@ -53,6 +53,7 @@ const state = {
   tracks:      [],        // library, sorted by title
   playlists:   [],
   usage:       '',        // storage estimate, shown in 'stored' mode
+  persisted:   false,     // has the browser promised not to evict us?
 
   queue:       [],        // array of paths
   qIndex:      -1,
@@ -253,28 +254,42 @@ async function importFiles(fileList) {
   const files = [...fileList].filter(f => /\.mp3$/i.test(f.name) || f.type === 'audio/mpeg');
   if (!files.length) { toast('Pick some MP3 files.'); return; }
 
-  // Ask the browser not to evict the library if storage gets tight.
-  if (navigator.storage && navigator.storage.persist) {
-    try { await navigator.storage.persist(); } catch { /* not fatal */ }
-  }
+  await ensurePersistence();
 
   showScan('Importing songs…', 0, '');
   const taken = new Set((await dbAll('tracks')).map(t => t.path));
   const list = [];
-  let i = 0;
+  let i = 0, failed = 0;
 
   for (const f of files) {
     i++;
     showScan('Importing songs…', i / files.length, f.name);
     let name = f.name, n = 1;
     while (taken.has(name)) name = `${f.name.replace(/\.mp3$/i, '')} (${n++}).mp3`;
-    taken.add(name);
-    await dbPut('blobs', f, name);
-    list.push({ path: name, file: f });
+
+    try {
+      // Store the bytes, not the File. A File can be a live reference to a
+      // path on disk, and Safari in particular hands back a dead reference
+      // after a restart -- which reads as "my library emptied itself".
+      const bytes = await f.arrayBuffer();
+      const blob  = new Blob([bytes], { type: 'audio/mpeg' });
+      await dbPut('blobs', blob, name);
+      taken.add(name);
+      list.push({ path: name, file: blob });
+    } catch (err) {
+      failed++;
+      if (err && (err.name === 'QuotaExceededError' || /quota/i.test(err.message || ''))) {
+        hideScan();
+        await refreshUsage();
+        toast('Out of storage space — some songs were not added.');
+        break;
+      }
+    }
   }
 
   state.mode = 'stored';
   await ingest(list, { merge: true });
+  if (failed) toast(`${failed} file${failed === 1 ? '' : 's'} could not be imported.`);
 }
 
 async function refreshUsage() {
@@ -283,6 +298,23 @@ async function refreshUsage() {
     const { usage } = await navigator.storage.estimate();
     state.usage = usage ? `${(usage / 1048576).toFixed(0)} MB used` : '';
   } catch { state.usage = ''; }
+}
+
+/**
+ * Ask the browser to mark this library as persistent, so it isn't evicted
+ * when storage gets tight or the app sits unused for a while. Without this
+ * a browser is free to bin the whole database between launches.
+ */
+async function ensurePersistence() {
+  if (!navigator.storage || !navigator.storage.persisted) { state.persisted = false; return false; }
+  try {
+    let ok = await navigator.storage.persisted();
+    if (!ok && navigator.storage.persist) ok = await navigator.storage.persist();
+    state.persisted = !!ok;
+  } catch {
+    state.persisted = false;
+  }
+  return state.persisted;
 }
 
 async function restoreFolder() {
@@ -745,6 +777,8 @@ function renderAll() {
   }
   $('btnAddSongs').disabled = false;
   $('btnRescan').disabled   = false;
+  $('btnBackup').disabled   = !n && !state.playlists.length;
+  renderStorage();
 }
 
 /* ---------- Library ---------- */
@@ -908,6 +942,84 @@ async function movePlaylistTrack(p, i, dir) {
 async function savePlaylist(p) {
   p.updatedAt = Date.now();
   await dbPut('playlists', p);
+}
+
+/* ---------------------------------------------------------
+   Backup — playlists and metadata edits, so a wiped library
+   costs you an import rather than an afternoon.
+--------------------------------------------------------- */
+async function exportBackup() {
+  const tracks = await dbAll('tracks');
+  const backup = {
+    app: 'sherryplayer',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    tracks: tracks.map(t => ({ path: t.path, title: t.title, artist: t.artist, edited: !!t.edited })),
+    playlists: await dbAll('playlists')
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `sherry-player-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  toast(`Backed up ${backup.playlists.length} playlist${backup.playlists.length === 1 ? '' : 's'}`);
+}
+
+async function restoreBackup(file) {
+  let data;
+  try {
+    data = JSON.parse(await file.text());
+  } catch {
+    toast('That file is not a valid backup.');
+    return;
+  }
+  if (!data || data.app !== 'sherryplayer' || !Array.isArray(data.playlists)) {
+    toast('That file is not a Sherry Player backup.');
+    return;
+  }
+
+  // Playlists come back whole; song titles only reattach to songs you have.
+  const existing = await dbAll('playlists');
+  const byId = new Map(existing.map(p => [p.id, p]));
+  let added = 0;
+  for (const p of data.playlists) {
+    if (!p || !p.id || !Array.isArray(p.paths)) continue;
+    if (!byId.has(p.id)) { await dbPut('playlists', p); added++; }
+  }
+
+  let relabelled = 0;
+  if (Array.isArray(data.tracks)) {
+    const have = new Map((await dbAll('tracks')).map(t => [t.path, t]));
+    for (const rec of data.tracks) {
+      const t = have.get(rec.path);
+      if (t && rec.edited && (t.title !== rec.title || t.artist !== rec.artist)) {
+        t.title = rec.title; t.artist = rec.artist; t.edited = true;
+        await dbPut('tracks', t);
+        relabelled++;
+      }
+    }
+    state.tracks = sortTracks(await dbAll('tracks'));
+  }
+
+  state.playlists = (await dbAll('playlists')).sort((a, b) => a.name.localeCompare(b.name));
+  renderAll();
+  toast(`Restored ${added} playlist${added === 1 ? '' : 's'}${relabelled ? ` · ${relabelled} renamed` : ''}`);
+}
+
+function renderStorage() {
+  const line = $('storageLine');
+  if (state.mode === 'fs' && state.dirHandle) { line.hidden = true; return; }
+  line.hidden = false;
+  const bits = [];
+  bits.push(state.persisted
+    ? `<span class="ok">Storage is persistent</span> — your songs stay put`
+    : `<span class="warn">Storage is not persistent</span> — this browser may clear your songs`);
+  if (state.usage) bits.push(state.usage);
+  line.innerHTML = bits.join(' · ');
 }
 
 async function removeFromAllPlaylists(paths) {
@@ -1200,6 +1312,12 @@ function bind() {
     await importFiles(e.target.files);
     e.target.value = '';                     // let the same file be picked again
   };
+  $('btnBackup').onclick  = exportBackup;
+  $('btnRestore').onclick = () => $('restorePicker').click();
+  $('restorePicker').onchange = async (e) => {
+    if (e.target.files[0]) await restoreBackup(e.target.files[0]);
+    e.target.value = '';
+  };
   $('btnRescan').onclick       = () => scanFolder();
   $('btnAddSongs').onclick     = addSongs;
   $('librarySearch').oninput   = (e) => { state.filter = e.target.value; renderLibrary(); };
@@ -1291,6 +1409,7 @@ function setVolume(v) {
 (async function init() {
   db = await openDB();
   bind();
+  await ensurePersistence();      // claim durable storage before anything else
   document.body.classList.add('no-mini');
   paintPlayIcon();
   goTo('player');

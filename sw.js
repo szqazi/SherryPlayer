@@ -2,7 +2,7 @@
    Caches the app shell so the player opens with no network at all.
    Your songs are not cached here -- they live in IndexedDB. */
 
-const CACHE = 'sherry-player-v2';
+const CACHE = 'sherry-player-v3';
 
 const SHELL = [
   './',

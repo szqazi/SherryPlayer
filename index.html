@@ -86,12 +86,15 @@
         <div class="folder-line">
           <span id="folderName" class="muted">No folder connected</span>
         </div>
+        <div class="storage-line" id="storageLine" hidden></div>
       </div>
 
       <div class="toolbar">
         <button class="btn btn-primary" id="btnChooseFolder">Choose music folder</button>
         <button class="btn" id="btnAddSongs">Add songs</button>
         <button class="btn" id="btnRescan">Rescan</button>
+        <button class="btn" id="btnBackup">Back up</button>
+        <button class="btn" id="btnRestore">Restore</button>
       </div>
 
       <div class="searchbar">
@@ -206,6 +209,7 @@
 <div id="toast" hidden></div>
 
 <input type="file" id="filePicker" accept="audio/mpeg,.mp3" multiple hidden>
+<input type="file" id="restorePicker" accept="application/json,.json" hidden>
 <audio id="audio" preload="metadata"></audio>
 <script src="script.js"></script>
 </body>

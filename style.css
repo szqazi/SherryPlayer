@@ -62,7 +62,13 @@ body.no-mini #main { padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + 24px
   font-size: 26px;
   letter-spacing: -0.4px;
 }
-.folder-line { font-size: 13px; margin-bottom: 14px; }
+.folder-line { font-size: 13px; margin-bottom: 6px; }
+.storage-line {
+  font-size: 11.5px; color: var(--muted);
+  margin-bottom: 14px; line-height: 1.5;
+}
+.storage-line .ok   { color: var(--accent); font-weight: 600; }
+.storage-line .warn { color: #f0c04a; font-weight: 600; }
 
 /* ---------------- Buttons ---------------- */
 .btn {
