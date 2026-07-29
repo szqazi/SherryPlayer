@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Sherry Player</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ SCREENS ============ -->
+  <main id="main">
+
+    <!-- ---------- PLAYER ---------- -->
+    <section class="screen" id="screen-player">
+      <div class="player-wrap">
+        <div class="art" id="playerArt">
+          <svg viewBox="0 0 24 24" class="art-fallback"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+          <img id="playerArtImg" alt="">
+        </div>
+
+        <div class="now-meta">
+          <div class="now-title" id="nowTitle">Nothing playing</div>
+          <div class="now-artist" id="nowArtist">Pick a song from your Library</div>
+          <div class="now-source" id="nowSource"></div>
+        </div>
+
+        <div class="seek-row">
+          <span class="time" id="timeNow">0:00</span>
+          <input type="range" id="seek" min="0" max="1000" value="0" step="1" aria-label="Seek">
+          <span class="time" id="timeTotal">0:00</span>
+        </div>
+
+        <div class="controls">
+          <button class="ctrl" id="btnPrev" title="Previous song" aria-label="Previous song">
+            <svg viewBox="0 0 24 24"><path d="M6 5h2.2v14H6zM20 5v14L9.4 12z"/></svg>
+          </button>
+          <button class="ctrl" id="btnRewind" title="Rewind 10 seconds" aria-label="Rewind 10 seconds">
+            <svg viewBox="0 0 24 24"><path d="M12 5.5v13L3.5 12zM21 5.5v13L12.5 12z"/></svg>
+          </button>
+          <button class="ctrl ctrl-main" id="btnPlay" title="Play / Pause" aria-label="Play or pause">
+            <svg viewBox="0 0 24 24" id="iconPlay"><path d="M7 4.5l13 7.5-13 7.5z"/></svg>
+            <svg viewBox="0 0 24 24" id="iconPause" class="hidden"><path d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z"/></svg>
+          </button>
+          <button class="ctrl" id="btnStop" title="Stop" aria-label="Stop">
+            <svg viewBox="0 0 24 24"><path d="M6.5 6.5h11v11h-11z"/></svg>
+          </button>
+          <button class="ctrl" id="btnForward" title="Forward 10 seconds" aria-label="Forward 10 seconds">
+            <svg viewBox="0 0 24 24"><path d="M12 5.5v13l8.5-6.5zM3 5.5v13L11.5 12z"/></svg>
+          </button>
+          <button class="ctrl" id="btnNext" title="Next song" aria-label="Next song">
+            <svg viewBox="0 0 24 24"><path d="M15.8 5H18v14h-2.2zM4 5l10.6 7L4 19z"/></svg>
+          </button>
+        </div>
+
+        <div class="controls-2">
+          <button class="chip" id="btnShuffle" aria-pressed="false">Shuffle</button>
+          <button class="chip" id="btnRepeat" data-mode="off">Repeat: Off</button>
+          <label class="vol">
+            <svg viewBox="0 0 24 24" class="vol-icon"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4 4 0 0 0-2.2-3.6v7.2A4 4 0 0 0 16.5 12z"/></svg>
+            <input type="range" id="volume" min="0" max="100" value="100" aria-label="Volume">
+          </label>
+        </div>
+
+        <div class="queue-box">
+          <div class="queue-head">Up next <span id="queueCount" class="muted"></span></div>
+          <ol class="queue-list" id="queueList"></ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- LIBRARY ---------- -->
+    <section class="screen" id="screen-library" hidden>
+      <div class="screen-head">
+        <h1>Library</h1>
+        <div class="folder-line">
+          <span id="folderName" class="muted">No folder connected</span>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button class="btn btn-primary" id="btnChooseFolder">Choose music folder</button>
+        <button class="btn" id="btnAddSongs">Add songs</button>
+        <button class="btn" id="btnRescan">Rescan</button>
+      </div>
+
+      <div class="searchbar">
+        <input type="search" id="librarySearch" placeholder="Filter by song or artist…" autocomplete="off">
+        <button class="btn btn-sm" id="btnPlayAll">Play all</button>
+      </div>
+
+      <div id="libraryEmpty" class="empty">
+        <p><strong>No songs yet.</strong></p>
+        <p>Connect the folder where your MP3s live, and every track in it becomes your library.</p>
+      </div>
+
+      <ul class="tracklist" id="libraryList"></ul>
+    </section>
+
+    <!-- ---------- PLAYLISTS ---------- -->
+    <section class="screen" id="screen-playlists" hidden>
+      <!-- list of playlists -->
+      <div id="plIndex">
+        <div class="screen-head">
+          <h1>Playlists</h1>
+        </div>
+        <div class="toolbar">
+          <button class="btn btn-primary" id="btnNewPlaylist">New playlist</button>
+        </div>
+        <div id="playlistsEmpty" class="empty">
+          <p><strong>No playlists yet.</strong></p>
+          <p>Create one, then add songs to it from your Library.</p>
+        </div>
+        <ul class="playlist-grid" id="playlistList"></ul>
+      </div>
+
+      <!-- single playlist detail -->
+      <div id="plDetail" hidden>
+        <div class="detail-head">
+          <button class="btn btn-sm" id="btnPlBack">‹ Playlists</button>
+        </div>
+        <div class="screen-head">
+          <h1 id="plTitle">Playlist</h1>
+          <div class="muted" id="plSub"></div>
+        </div>
+        <div class="toolbar">
+          <button class="btn btn-primary" id="btnPlPlay">Play</button>
+          <button class="btn" id="btnPlAddSongs">Add songs</button>
+          <button class="btn" id="btnPlRename">Rename</button>
+          <button class="btn btn-danger" id="btnPlDelete">Delete playlist</button>
+        </div>
+        <div id="plEmpty" class="empty">
+          <p><strong>This playlist is empty.</strong></p>
+          <p>Use “Add songs” to pull tracks in from your Library.</p>
+        </div>
+        <ul class="tracklist" id="plTracks"></ul>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============ MINI BAR ============ -->
+  <div id="minibar" hidden>
+    <div class="mini-art"><img id="miniArtImg" alt=""></div>
+    <div class="mini-meta">
+      <div class="mini-title" id="miniTitle"></div>
+      <div class="mini-artist" id="miniArtist"></div>
+    </div>
+    <button class="mini-btn" id="miniPrev" aria-label="Previous song">
+      <svg viewBox="0 0 24 24"><path d="M6 5h2.2v14H6zM20 5v14L9.4 12z"/></svg>
+    </button>
+    <button class="mini-btn" id="miniPlay" aria-label="Play or pause">
+      <svg viewBox="0 0 24 24" id="miniIconPlay"><path d="M7 4.5l13 7.5-13 7.5z"/></svg>
+      <svg viewBox="0 0 24 24" id="miniIconPause" class="hidden"><path d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z"/></svg>
+    </button>
+    <button class="mini-btn" id="miniNext" aria-label="Next song">
+      <svg viewBox="0 0 24 24"><path d="M15.8 5H18v14h-2.2zM4 5l10.6 7L4 19z"/></svg>
+    </button>
+  </div>
+
+  <!-- ============ BOTTOM NAV ============ -->
+  <nav id="tabbar">
+    <button class="tab is-active" data-screen="player">
+      <svg viewBox="0 0 24 24"><path d="M8 5.5l11 6.5-11 6.5z"/></svg>
+      <span>Player</span>
+    </button>
+    <button class="tab" data-screen="library">
+      <svg viewBox="0 0 24 24"><path d="M4 4h2.5v16H4zM8 4h2.5v16H8zM13.4 4.6l2.4-.6 4 15.4-2.4.6z"/></svg>
+      <span>Library</span>
+    </button>
+    <button class="tab" data-screen="playlists">
+      <svg viewBox="0 0 24 24"><path d="M3 6h12v2H3zm0 5h12v2H3zm0 5h8v2H3zm14-9v6.6a3 3 0 1 0 2 2.8V8h2V6h-4z"/></svg>
+      <span>Playlists</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- ============ MODAL ============ -->
+<div id="modalBackdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head" id="modalTitle">Title</div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot" id="modalFoot"></div>
+  </div>
+</div>
+
+<!-- ============ PROGRESS / TOAST ============ -->
+<div id="scanOverlay" hidden>
+  <div class="scan-card">
+    <div class="scan-title" id="scanTitle">Scanning folder…</div>
+    <div class="scan-bar"><div class="scan-fill" id="scanFill"></div></div>
+    <div class="scan-sub muted" id="scanSub"></div>
+  </div>
+</div>
+<div id="toast" hidden></div>
+
+<audio id="audio" preload="metadata"></audio>
+<script src="script.js"></script>
+</body>
+</html>
