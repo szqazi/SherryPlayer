@@ -2,5 +2,8 @@
 Thumbs.db
 desktop.ini
 
+# Machine-specific Claude Code permission grants
+.claude/settings.local.json
+
 # Music files, in case any ever land in this folder
 *.mp3

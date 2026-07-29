@@ -8,7 +8,7 @@
    1. IndexedDB
 --------------------------------------------------------- */
 const DB_NAME = 'sherryplayer';
-const DB_VER  = 1;
+const DB_VER  = 2;
 let db = null;
 
 function openDB() {
@@ -20,6 +20,7 @@ function openDB() {
       if (!d.objectStoreNames.contains('tracks'))    d.createObjectStore('tracks',    { keyPath: 'path' });
       if (!d.objectStoreNames.contains('playlists')) d.createObjectStore('playlists', { keyPath: 'id' });
       if (!d.objectStoreNames.contains('art'))       d.createObjectStore('art');
+      if (!d.objectStoreNames.contains('blobs'))     d.createObjectStore('blobs');   // the audio itself
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror   = () => reject(req.error);
@@ -44,12 +45,14 @@ const dbDel = (store, key)      => wrap(tx(store, 'readwrite').delete(key));
    2. State
 --------------------------------------------------------- */
 const state = {
-  mode:        'fs',      // 'fs' = File System Access API, 'legacy' = folder <input>
+  // 'fs'     — desktop: linked to a real folder via the File System Access API
+  // 'stored' — phones/other browsers: audio lives in IndexedDB
+  mode:        'stored',
   dirHandle:   null,
   folderName:  '',
   tracks:      [],        // library, sorted by title
   playlists:   [],
-  fileCache:   new Map(), // legacy mode only: path -> File
+  usage:       '',        // storage estimate, shown in 'stored' mode
 
   queue:       [],        // array of paths
   qIndex:      -1,
@@ -243,28 +246,43 @@ async function chooseFolder() {
   await scanFolder();
 }
 
-/* Fallback for browsers without the File System Access API. */
-function chooseFolderLegacy() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.multiple = true;
-  input.webkitdirectory = true;
-  input.onchange = async () => {
-    const files = [...input.files].filter(f => /\.mp3$/i.test(f.name));
-    if (!files.length) { toast('No MP3 files found in that folder.'); return; }
-    state.mode = 'legacy';
-    state.fileCache.clear();
-    const root = files[0].webkitRelativePath.split('/')[0];
-    state.folderName = root;
-    const list = files.map(f => {
-      const path = f.webkitRelativePath.split('/').slice(1).join('/') || f.name;
-      state.fileCache.set(path, f);
-      return { path, file: f };
-    });
-    await dbPut('meta', root, 'folderName');
-    await ingest(list);
-  };
-  input.click();
+/* Phones and other browsers: pull the chosen MP3s into the app's own storage. */
+function chooseFolderLegacy() { $('filePicker').click(); }
+
+async function importFiles(fileList) {
+  const files = [...fileList].filter(f => /\.mp3$/i.test(f.name) || f.type === 'audio/mpeg');
+  if (!files.length) { toast('Pick some MP3 files.'); return; }
+
+  // Ask the browser not to evict the library if storage gets tight.
+  if (navigator.storage && navigator.storage.persist) {
+    try { await navigator.storage.persist(); } catch { /* not fatal */ }
+  }
+
+  showScan('Importing songs…', 0, '');
+  const taken = new Set((await dbAll('tracks')).map(t => t.path));
+  const list = [];
+  let i = 0;
+
+  for (const f of files) {
+    i++;
+    showScan('Importing songs…', i / files.length, f.name);
+    let name = f.name, n = 1;
+    while (taken.has(name)) name = `${f.name.replace(/\.mp3$/i, '')} (${n++}).mp3`;
+    taken.add(name);
+    await dbPut('blobs', f, name);
+    list.push({ path: name, file: f });
+  }
+
+  state.mode = 'stored';
+  await ingest(list, { merge: true });
+}
+
+async function refreshUsage() {
+  if (!navigator.storage || !navigator.storage.estimate) { state.usage = ''; return; }
+  try {
+    const { usage } = await navigator.storage.estimate();
+    state.usage = usage ? `${(usage / 1048576).toFixed(0)} MB used` : '';
+  } catch { state.usage = ''; }
 }
 
 async function restoreFolder() {
@@ -276,6 +294,7 @@ async function restoreFolder() {
   state.playlists = (await dbAll('playlists')).sort((a, b) => a.name.localeCompare(b.name));
 
   if (handle && hasFSAccess) {
+    state.mode = 'fs';
     state.dirHandle = handle;
     const perm = await handle.queryPermission({ mode: 'readwrite' });
     if (perm === 'granted') {
@@ -283,9 +302,11 @@ async function restoreFolder() {
     } else {
       showReconnectBanner();                 // needs a click to regain access
     }
-  } else if (state.tracks.length) {
-    state.mode = 'legacy';
-    showReconnectBanner();
+  } else {
+    // Songs imported into the app's own storage survive a reload on their
+    // own, so there is nothing to reconnect.
+    state.mode = 'stored';
+    await refreshUsage();
   }
   renderAll();
 }
@@ -351,7 +372,7 @@ async function scanFolder({ quiet = false } = {}) {
  * Tracks whose size + timestamp are unchanged are left alone, so
  * metadata you edited by hand survives a rescan.
  */
-async function ingest(list, { quiet = false } = {}) {
+async function ingest(list, { quiet = false, merge = false } = {}) {
   const known = new Map((await dbAll('tracks')).map(t => [t.path, t]));
   const seen  = new Set();
   const fresh = [];
@@ -392,8 +413,9 @@ async function ingest(list, { quiet = false } = {}) {
     else if (prev && prev.hasArt) artOps.push({ path: item.path, blob: null });
   }
 
-  // files that vanished from the folder
-  const removed = [...known.keys()].filter(p => !seen.has(p));
+  // Files that vanished from the folder. An import only ever adds, so in
+  // merge mode nothing is treated as missing.
+  const removed = merge ? [] : [...known.keys()].filter(p => !seen.has(p));
 
   // Single write phase. An IndexedDB transaction closes the moment the event
   // loop yields, so everything above is gathered first and committed here.
@@ -411,13 +433,25 @@ async function ingest(list, { quiet = false } = {}) {
 
   if (removed.length) await removeFromAllPlaylists(removed);
 
-  state.tracks = sortTracks(fresh);
+  if (merge) {
+    const incoming = new Set(list.map(x => x.path));
+    const kept = [...known.values()].filter(t => !incoming.has(t.path));
+    state.tracks = sortTracks([...kept, ...fresh]);
+  } else {
+    state.tracks = sortTracks(fresh);
+  }
+
+  await refreshUsage();
   hideScan();
   renderAll();
 
   if (!quiet) {
-    const n = state.tracks.length;
-    toast(`${n} song${n === 1 ? '' : 's'} in ${state.folderName}${removed.length ? ` · ${removed.length} removed` : ''}`);
+    if (merge) {
+      toast(`Added ${fresh.length} song${fresh.length === 1 ? '' : 's'}`);
+    } else {
+      const n = state.tracks.length;
+      toast(`${n} song${n === 1 ? '' : 's'} in ${state.folderName}${removed.length ? ` · ${removed.length} removed` : ''}`);
+    }
   }
 }
 
@@ -428,13 +462,14 @@ const sortTracks = (arr) => arr.sort((a, b) =>
    5. File access helpers
 --------------------------------------------------------- */
 async function getFile(path) {
-  if (state.mode === 'legacy') return state.fileCache.get(path) || null;
-  if (!state.dirHandle) return null;
-  const parts = path.split('/');
-  let dir = state.dirHandle;
-  for (let i = 0; i < parts.length - 1; i++) dir = await dir.getDirectoryHandle(parts[i]);
-  const fh = await dir.getFileHandle(parts[parts.length - 1]);
-  return fh.getFile();
+  if (state.mode === 'fs' && state.dirHandle) {
+    const parts = path.split('/');
+    let dir = state.dirHandle;
+    for (let i = 0; i < parts.length - 1; i++) dir = await dir.getDirectoryHandle(parts[i]);
+    const fh = await dir.getFileHandle(parts[parts.length - 1]);
+    return fh.getFile();
+  }
+  return (await dbGet('blobs', path)) || null;
 }
 
 async function getParentDir(path) {
@@ -446,10 +481,7 @@ async function getParentDir(path) {
 
 /** Copies MP3s the user picks into the music folder. */
 async function addSongs() {
-  if (state.mode === 'legacy' || !state.dirHandle) {
-    toast('Connect a folder with “Choose music folder” first.');
-    return;
-  }
+  if (state.mode !== 'fs' || !state.dirHandle) { $('filePicker').click(); return; }
   let files;
   try {
     const handles = await window.showOpenFilePicker({
@@ -492,24 +524,27 @@ async function uniqueName(name) {
 }
 
 async function deleteSong(track) {
-  if (state.mode === 'legacy' || !state.dirHandle) {
-    toast('Deleting files needs a folder connected via “Choose music folder”.');
-    return;
-  }
+  const onDisk = state.mode === 'fs' && state.dirHandle;
   const ok = await confirmDialog(
     'Delete song?',
     `<p><strong>${escapeHtml(track.title)}</strong><br><span class="muted">${escapeHtml(track.artist)}</span></p>
-     <p class="hint">This permanently deletes <code>${escapeHtml(track.path)}</code> from your music folder on disk, and removes it from every playlist. It does not go to the Recycle Bin.</p>`,
-    'Delete from disk'
+     <p class="hint">${onDisk
+        ? `This permanently deletes <code>${escapeHtml(track.path)}</code> from your music folder on disk, and removes it from every playlist. It does not go to the Recycle Bin.`
+        : `This removes the song from the player's storage and from every playlist. Your original file is untouched — you can import it again later.`}</p>`,
+    onDisk ? 'Delete from disk' : 'Remove song'
   );
   if (!ok) return;
 
-  try {
-    const { dir, name } = await getParentDir(track.path);
-    await dir.removeEntry(name);
-  } catch (e) {
-    toast('Could not delete that file.');
-    return;
+  if (onDisk) {
+    try {
+      const { dir, name } = await getParentDir(track.path);
+      await dir.removeEntry(name);
+    } catch (e) {
+      toast('Could not delete that file.');
+      return;
+    }
+  } else {
+    await dbDel('blobs', track.path);
   }
   await dbDel('tracks', track.path);
   await dbDel('art', track.path);
@@ -519,8 +554,9 @@ async function deleteSong(track) {
   if (state.queue[state.qIndex] === track.path) stopPlayback();
   state.queue = state.queue.filter(p => p !== track.path);
 
+  await refreshUsage();
   renderAll();
-  toast('Deleted');
+  toast(onDisk ? 'Deleted' : 'Removed');
 }
 
 /* ---------------------------------------------------------
@@ -689,11 +725,26 @@ function renderAll() {
   renderPlaylists();
   renderPlaylistDetail();
   renderQueue();
-  $('folderName').textContent = state.folderName
-    ? `Folder: ${state.folderName} · ${state.tracks.length} song${state.tracks.length === 1 ? '' : 's'}`
-    : 'No folder connected';
-  $('btnAddSongs').disabled = !state.dirHandle || state.mode === 'legacy';
-  $('btnRescan').disabled   = !state.dirHandle;
+  const n = state.tracks.length;
+  const songs = `${n} song${n === 1 ? '' : 's'}`;
+
+  if (state.mode === 'fs' && state.dirHandle) {
+    $('folderName').textContent = `Folder: ${state.folderName} · ${songs}`;
+    $('btnChooseFolder').textContent = 'Change folder';
+    $('btnAddSongs').hidden = false;
+    $('btnRescan').hidden   = false;
+  } else {
+    $('folderName').textContent = n
+      ? `On this device · ${songs}${state.usage ? ' · ' + state.usage : ''}`
+      : 'No songs yet';
+    // Nothing to rescan or re-link when the audio lives in the app itself.
+    $('btnChooseFolder').textContent = hasFSAccess ? 'Choose music folder' : 'Add songs';
+    $('btnChooseFolder').hidden = hasFSAccess && n > 0;
+    $('btnAddSongs').hidden = !n;
+    $('btnRescan').hidden   = true;
+  }
+  $('btnAddSongs').disabled = false;
+  $('btnRescan').disabled   = false;
 }
 
 /* ---------- Library ---------- */
@@ -1145,6 +1196,10 @@ function bind() {
 
   // library
   $('btnChooseFolder').onclick = chooseFolder;
+  $('filePicker').onchange = async (e) => {
+    await importFiles(e.target.files);
+    e.target.value = '';                     // let the same file be picked again
+  };
   $('btnRescan').onclick       = () => scanFolder();
   $('btnAddSongs').onclick     = addSongs;
   $('librarySearch').oninput   = (e) => { state.filter = e.target.value; renderLibrary(); };
@@ -1242,10 +1297,14 @@ function setVolume(v) {
   await restoreFolder();
 
   if (!hasFSAccess) {
-    const head = el('.folder-line', $('screen-library'));
-    const div = document.createElement('div');
-    div.className = 'banner';
-    div.innerHTML = `<span>This browser can't hold on to a folder between visits. You can still browse and play, but you'll need to re-pick the folder each time, and adding or deleting files is disabled. <strong>Chrome or Edge</strong> gives you the full experience.</span>`;
-    head.insertAdjacentElement('afterend', div);
+    $('libraryEmpty').innerHTML =
+      `<p><strong>No songs yet.</strong></p>
+       <p>Tap <strong>Add songs</strong> and pick the MP3s you want. They're copied into
+       the player and stay there — no need to re-pick them next time.</p>`;
+  }
+
+  if ('serviceWorker' in navigator) {
+    // Only registers on https:// or localhost; harmless everywhere else.
+    navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 })();

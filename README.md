@@ -1,11 +1,12 @@
 # Sherry Player
 
 A local MP3 player. Point it at one folder of music on your PC and it becomes your library.
+It also installs on an Android phone as a PWA — see below.
 
-## Running it
+## Running it on your PC
 
 Double-click **`Start Sherry Player.cmd`**. It starts a small local server and opens
-<http://localhost:8123/> in your browser. Leave the black console window open while you listen;
+<http://localhost:8130/> in your browser. Leave the black console window open while you listen;
 close it when you're done.
 
 Use **Chrome or Edge**. The player needs the File System Access API to remember your music
@@ -24,6 +25,31 @@ re-pick the folder every time and adding/deleting is turned off.
 
 After a reload the browser asks for folder permission again — that's a browser security rule,
 not a bug. Click **Reconnect** on the Library tab.
+
+## Installing on your Android phone
+
+The app runs in two storage modes and picks the right one automatically:
+
+| | Desktop Chrome / Edge | Android (and other browsers) |
+| --- | --- | --- |
+| Storage | stays linked to your music folder | songs are imported into the app |
+| Adding | copies files into the folder | **Add songs** imports the MP3s you pick |
+| After a reload | asks to reconnect the folder | just works, nothing to reconnect |
+
+Android has no File System Access API, so a phone can't hold a live link to a folder. Instead
+the MP3s are copied into the app's own storage, which is what makes the library survive
+restarts. Your original files stay where they are.
+
+**Installing requires HTTPS.** A phone can't reach `localhost` on your PC, and Android won't
+offer to install a PWA served over plain HTTP. So the files need to sit on an HTTPS host —
+GitHub Pages is free and works well. Once they're hosted:
+
+1. Open the site in Chrome on your phone.
+2. Menu (⋮) → **Add to Home screen** / **Install app**.
+3. Launch it from the home screen. It opens fullscreen with no browser chrome.
+4. Go to **Library → Add songs** and pick your MP3s.
+
+Once installed the app shell is cached, so it opens and plays with no connection at all.
 
 ## The three tabs
 
@@ -58,15 +84,18 @@ Media keys on your keyboard work too.
 
 ## How your data is stored
 
-Your MP3 files are the source of truth and are never modified. The song list, your metadata
-edits, and your playlists live in the browser's IndexedDB under `http://localhost:8123`.
+Your MP3 files are never modified. The song list, your metadata edits, and your playlists live
+in the browser's IndexedDB. On a phone the audio itself is stored there too, so the library
+works with the original files nowhere in sight.
 
 Editing a song name or artist changes the player's own record, **not** the tags inside the MP3
 file. Those edits survive a rescan — the player only re-reads a file's tags when the file itself
 has changed on disk.
 
-Because the database is tied to the browser and the port, keep using the same browser and
-launch the app the same way. Clearing site data for `localhost` wipes your playlists.
+Because the database is tied to the browser **and the port**, keep using the same browser and
+launch the app the same way. Changing the port hides your library behind a different origin,
+which is why `serve.ps1` pins 8130 rather than picking a port automatically. Clearing site
+data for `localhost` wipes your playlists.
 
 ## Files
 
@@ -75,5 +104,8 @@ launch the app the same way. Clearing site data for `localhost` wipes your playl
 | `index.html` | Screens and controls |
 | `style.css` | Styling |
 | `script.js` | Tag reading, database, playback, playlists |
+| `manifest.json` | Makes it installable as an app |
+| `sw.js` | Service worker — caches the app so it opens offline |
+| `icon-*.png` | Home screen and tab icons |
 | `serve.ps1` | The little local web server |
 | `Start Sherry Player.cmd` | Double-click launcher |

@@ -2,7 +2,10 @@
 # The app needs a real http:// origin -- browsers block IndexedDB and the
 # folder picker on file:// pages. No Node or Python required.
 
-param([int]$Port = 8123)
+# Port 8123 is an administered OS exclusion on this machine, so 8130 is the
+# default. Keep it fixed: the library lives in IndexedDB, which is per-origin,
+# and changing the port hides it.
+param([int]$Port = 8130)
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 

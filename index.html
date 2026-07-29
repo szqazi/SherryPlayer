@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Sherry Player</title>
 <link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0c0d10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sherry Player">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 </head>
 <body>
 
@@ -197,6 +205,7 @@
 </div>
 <div id="toast" hidden></div>
 
+<input type="file" id="filePicker" accept="audio/mpeg,.mp3" multiple hidden>
 <audio id="audio" preload="metadata"></audio>
 <script src="script.js"></script>
 </body>
