@@ -1,0 +1,16 @@
+{
+  "name": "sherry-player",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Android wrapper for Sherry Player.",
+  "scripts": {
+    "copy": "node copy-web.mjs",
+    "sync": "npm run copy && cap sync android",
+    "apk": "npm run sync && cd android && gradlew.bat assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/cli": "^8.4.2",
+    "@capacitor/core": "^8.4.2"
+  }
+}

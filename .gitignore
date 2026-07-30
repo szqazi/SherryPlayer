@@ -5,5 +5,16 @@ desktop.ini
 # Machine-specific Claude Code permission grants
 .claude/settings.local.json
 
+# Android build
+node_modules/
+www/
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/public/
+*.apk
+
 # Music files, in case any ever land in this folder
 *.mp3
