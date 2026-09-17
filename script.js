@@ -294,9 +294,14 @@ async function importFiles(fileList) {
 
 /**
  * First-launch only: pulls the bundled starter songs (see starter-songs/)
- * into the library, so the app isn't empty out of the box. Runs once ever —
- * skipped for good after the first attempt, even if the person then deletes
- * every song, and skipped entirely if a real folder is already connected.
+ * into the library, so the app isn't empty out of the box. Each entry in
+ * the manifest is one subfolder; its songs are imported and also grouped
+ * into a playlist named after that folder. Runs once ever — skipped for
+ * good after the first attempt, even if the person then deletes every
+ * song, and skipped entirely if a real folder is already connected.
+ *
+ * manifest.json shape: [{ "name": "Chill", "files": ["a.mp3", "b.mp3"] }, …]
+ * with files at starter-songs/<name>/<file>.
  */
 async function seedStarterLibrary() {
   // No starter-songs/manifest.json shipped (yet), or offline — leave the flag
@@ -309,24 +314,56 @@ async function seedStarterLibrary() {
   }
   if (!res.ok) return;
 
-  let names;
-  try { names = await res.json(); } catch { return; }
-  if (!Array.isArray(names) || !names.length) return;
+  let manifest;
+  try { manifest = await res.json(); } catch { return; }
+  if (!Array.isArray(manifest) || !manifest.length) return;
 
   // From here on it's a genuine attempt: mark it done even on partial
-  // failure, so a couple of missing files don't retry importing forever.
+  // failure, so a few missing files don't retry importing forever.
   try {
+    await ensurePersistence();
     showScan('Loading starter songs…', 0, '');
-    const files = [];
-    for (let i = 0; i < names.length; i++) {
-      showScan('Loading starter songs…', i / names.length, names[i]);
-      try {
-        const r = await fetch(`starter-songs/${encodeURIComponent(names[i])}`);
-        if (r.ok) files.push(new File([await r.blob()], names[i], { type: 'audio/mpeg' }));
-      } catch { /* skip this one, keep going */ }
+
+    const taken = new Set((await dbAll('tracks')).map(t => t.path));
+    const list = [];         // [{ path, file: Blob }] for ingest()
+    const groups = [];       // [{ name, paths: [] }] — one playlist per folder
+    const total = manifest.reduce((n, g) => n + (Array.isArray(g.files) ? g.files.length : 0), 0);
+    let i = 0;
+
+    for (const g of manifest) {
+      if (!g || !g.name || !Array.isArray(g.files)) continue;
+      const paths = [];
+      for (const filename of g.files) {
+        i++;
+        showScan('Loading starter songs…', i / (total || 1), `${g.name}/${filename}`);
+        try {
+          const r = await fetch(`starter-songs/${encodeURIComponent(g.name)}/${encodeURIComponent(filename)}`);
+          if (!r.ok) continue;
+          const blob = new Blob([await r.blob()], { type: 'audio/mpeg' });
+          let path = filename, n = 1;
+          while (taken.has(path)) path = `${filename.replace(/\.mp3$/i, '')} (${n++}).mp3`;
+          taken.add(path);
+          await dbPut('blobs', blob, path);
+          list.push({ path, file: blob });
+          paths.push(path);
+        } catch { /* skip this file, keep going */ }
+      }
+      if (paths.length) groups.push({ name: g.name, paths });
     }
+
     hideScan();
-    if (files.length) await importFiles(files);
+    if (!list.length) return;
+
+    state.mode = 'stored';
+    await ingest(list, { merge: true });
+
+    for (const g of groups) {
+      const p = { id: crypto.randomUUID(), name: g.name, paths: g.paths, createdAt: Date.now(), updatedAt: Date.now() };
+      await dbPut('playlists', p);
+      state.playlists.push(p);
+    }
+    state.playlists.sort((a, b) => a.name.localeCompare(b.name));
+    renderAll();
   } finally {
     await dbPut('meta', true, 'starterSeeded');
   }

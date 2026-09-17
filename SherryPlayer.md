@@ -96,8 +96,10 @@ The app can ship with a bundled set of songs (see `starter-songs/`) so it isn't 
 open.
 
 - On first launch, if no folder has ever been connected and the library is empty, the app fetches
-  `starter-songs/manifest.json` (a JSON array of filenames) and imports each listed MP3 through
-  the same path as **Add songs**.
+  `starter-songs/manifest.json` and imports the listed MP3s the same way **Add songs** does.
+- The manifest is organized by subfolder: `[{ "name": "Chill", "files": ["a.mp3", "b.mp3"] }, …]`,
+  with files at `starter-songs/<name>/<file>`. Each subfolder becomes both a set of imported
+  songs and a playlist named after that folder.
 - Runs at most once, ever — tracked by a flag in IndexedDB. Deleting the starter songs afterward
   does not bring them back; connecting a real folder first skips seeding entirely.
 - If `starter-songs/manifest.json` isn't present (no starter library bundled) or the device is
