@@ -55,7 +55,8 @@ The app runs in two modes and picks the right one automatically based on browser
 - No cover art. Shows song title, artist, and a "now playing source" line (Library, or
   `Playlist · <name>`).
 - Seek bar with elapsed / total time.
-- Transport controls: previous, rewind 10s, play/pause, stop, forward 10s, next.
+- Transport controls: previous, rewind 10s, play/pause, forward 10s, next. No Stop button — use
+  the `s` key or a media-session stop action.
 - **Repeat** icon (Spotify-style, no text label) cycling Off → All → One, with a small "1"
   badge in One mode. Defaults to **All**. No shuffle, no volume slider.
 - **Up next** queue list showing what's coming after the current track.

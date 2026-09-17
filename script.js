@@ -1310,7 +1310,6 @@ function bind() {
   // transport
   $('btnPlay').onclick    = togglePlay;
   $('miniPlay').onclick   = togglePlay;
-  $('btnStop').onclick    = stopPlayback;
   $('btnNext').onclick    = () => nextTrack();
   $('miniNext').onclick   = () => nextTrack();
   $('btnPrev').onclick    = prevTrack;

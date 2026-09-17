@@ -54,7 +54,7 @@ Once installed the app shell is cached, so it opens and plays with no connection
 ## The three tabs
 
 **Player** — song name, artist, and where it's playing from (library or playlist), a seek
-bar, and the transport controls: previous, rewind 10s, play/pause, stop, forward 10s, next.
+bar, and the transport controls: previous, rewind 10s, play/pause, forward 10s, next.
 Plus a repeat icon (off / all / one — defaults to all) and the upcoming queue. No cover art,
 shuffle, or volume slider.
 

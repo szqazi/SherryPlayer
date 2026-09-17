@@ -36,7 +36,7 @@ There should be three screens for the app, that the user can toggle
 
 ### Player:
 
-&#x09;\* Spotify like player interface: play / pause, stop, rewind , forward (10 secs each), previous next)
+&#x09;\* Spotify like player interface: play / pause, rewind , forward (10 secs each), previous next)
 
 &#x09;\* Seek bar with elapsed / total time.
 
