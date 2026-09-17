@@ -61,12 +61,12 @@ const state = {
   orderPos:    -1,
   source:      '',        // human label for where the queue came from
 
-  shuffle:     false,
-  repeat:      'off',     // 'off' | 'all' | 'one'
+  repeat:      'all',     // 'off' | 'all' | 'one'
   currentUrl:  null,
   artUrl:      null,
   openPlaylist: null,
-  filter:      ''
+  filter:      '',
+  lastTab:     'player'   // last non-settings screen, so the settings back button knows where to return
 };
 
 const audio = document.getElementById('audio');
@@ -597,19 +597,8 @@ async function deleteSong(track) {
 const trackByPath = (p) => state.tracks.find(t => t.path === p);
 
 function buildOrder(startIndex) {
-  const idx = state.queue.map((_, i) => i);
-  if (!state.shuffle) {
-    state.order = idx;
-    state.orderPos = startIndex;
-    return;
-  }
-  const rest = idx.filter(i => i !== startIndex);
-  for (let i = rest.length - 1; i > 0; i--) {            // Fisher-Yates
-    const j = Math.floor(Math.random() * (i + 1));
-    [rest[i], rest[j]] = [rest[j], rest[i]];
-  }
-  state.order = startIndex >= 0 ? [startIndex, ...rest] : rest;
-  state.orderPos = 0;
+  state.order = state.queue.map((_, i) => i);
+  state.orderPos = startIndex;
 }
 
 async function playQueue(paths, startIndex, sourceLabel) {
@@ -658,17 +647,13 @@ async function paintNowPlaying(track) {
   document.title = `${track.title} — Sherry Player`;
 
   if (state.artUrl) { URL.revokeObjectURL(state.artUrl); state.artUrl = null; }
-  const art  = $('playerArt');
   const mini = el('.mini-art');
   const blob = track.hasArt ? await dbGet('art', track.path) : null;
   if (blob) {
     state.artUrl = URL.createObjectURL(blob);
-    $('playerArtImg').src = state.artUrl;
-    $('miniArtImg').src   = state.artUrl;
-    art.classList.add('has-art');
+    $('miniArtImg').src = state.artUrl;
     mini.classList.add('has-art');
   } else {
-    art.classList.remove('has-art');
     mini.classList.remove('has-art');
   }
 
@@ -922,6 +907,10 @@ function renderPlaylistDetail() {
     el('[data-act=up]',   li).onclick = () => movePlaylistTrack(p, i, -1);
     el('[data-act=down]', li).onclick = () => movePlaylistTrack(p, i,  1);
     el('[data-act=rm]',   li).onclick = async () => {
+      const ok = await confirmDialog('Remove from playlist?',
+        `<p>“<strong>${escapeHtml(t.title)}</strong>” will be removed from “${escapeHtml(p.name)}”.</p>
+         <p class="hint">The file itself is not affected.</p>`, 'Remove');
+      if (!ok) return;
       p.paths = p.paths.filter(x => x !== t.path);
       await savePlaylist(p);
       renderPlaylists(); renderPlaylistDetail();
@@ -1029,6 +1018,54 @@ async function removeFromAllPlaylists(paths) {
     p.paths = p.paths.filter(x => !set.has(x));
     if (p.paths.length !== before) await savePlaylist(p);
   }
+}
+
+/* ---------------------------------------------------------
+   7.5. Settings
+--------------------------------------------------------- */
+const APP_VERSION   = '1.1.0';
+const APP_DEVELOPER = 'Sheheryar (szqazi)';
+const APP_SHARE_URL = 'https://szqazi.github.io/SherryPlayer/';
+
+function applyTheme(mode) {
+  document.documentElement.setAttribute('data-theme', mode);
+  $('metaThemeColor').setAttribute('content',
+    mode === 'light' ? '#f4f5f7' : '#0c0d10');
+}
+
+function setTheme(mode) {
+  applyTheme(mode);
+  try { localStorage.setItem('sherryplayer-theme', mode); } catch {}
+  paintSegmented('setTheme', mode);
+}
+
+function paintSegmented(id, value) {
+  el('#' + id).querySelectorAll('button').forEach(b =>
+    b.classList.toggle('on', b.dataset.value === value));
+}
+
+async function loadPersonalInfo() {
+  return (await dbGet('meta', 'personalInfo')) || { name: '', gender: '', dob: '' };
+}
+
+async function savePersonalInfo(patch) {
+  const info = { ...(await loadPersonalInfo()), ...patch };
+  await dbPut('meta', info, 'personalInfo');
+  return info;
+}
+
+async function renderSettings() {
+  const info = await loadPersonalInfo();
+  $('setName').value = info.name || '';
+  $('setDob').value  = info.dob  || '';
+  paintSegmented('setGender', info.gender || '');
+
+  const theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  paintSegmented('setTheme', theme);
+
+  $('aboutVersion').textContent   = APP_VERSION;
+  $('aboutDeveloper').textContent = APP_DEVELOPER;
+  $('aboutShareUrl').value        = APP_SHARE_URL;
 }
 
 /* ---------------------------------------------------------
@@ -1237,11 +1274,13 @@ function toast(msg) {
    10. Navigation
 --------------------------------------------------------- */
 function goTo(screen) {
-  ['player', 'library', 'playlists'].forEach(s => {
+  ['player', 'library', 'playlists', 'settings'].forEach(s => {
     $('screen-' + s).hidden = (s !== screen);
   });
   document.querySelectorAll('.tab').forEach(b =>
     b.classList.toggle('is-active', b.dataset.screen === screen));
+  if (screen !== 'settings') state.lastTab = screen;
+  else renderSettings();
   $('main').scrollTop = 0;
 }
 
@@ -1254,6 +1293,14 @@ function paintPlayIcon() {
   $('iconPause').classList.toggle('hidden', !playing);
   $('miniIconPlay').classList.toggle('hidden',  playing);
   $('miniIconPause').classList.toggle('hidden', !playing);
+}
+
+function paintRepeatIcon() {
+  const btn = $('btnRepeat');
+  btn.dataset.mode = state.repeat;
+  const label = { off: 'Off', all: 'All', one: 'One' }[state.repeat];
+  btn.title = `Repeat: ${label}`;
+  btn.setAttribute('aria-label', `Repeat: ${label}`);
 }
 
 function bind() {
@@ -1271,22 +1318,11 @@ function bind() {
   $('btnRewind').onclick  = () => seekBy(-10);
   $('btnForward').onclick = () => seekBy(10);
 
-  $('btnShuffle').onclick = () => {
-    state.shuffle = !state.shuffle;
-    $('btnShuffle').classList.toggle('on', state.shuffle);
-    $('btnShuffle').setAttribute('aria-pressed', String(state.shuffle));
-    buildOrder(state.qIndex);
-    renderQueue();
-  };
   $('btnRepeat').onclick = () => {
     const modes = ['off', 'all', 'one'];
     state.repeat = modes[(modes.indexOf(state.repeat) + 1) % 3];
-    const label = { off: 'Off', all: 'All', one: 'One' }[state.repeat];
-    $('btnRepeat').textContent = `Repeat: ${label}`;
-    $('btnRepeat').classList.toggle('on', state.repeat !== 'off');
+    paintRepeatIcon();
   };
-
-  $('volume').oninput = (e) => { audio.volume = e.target.value / 100; };
 
   let seeking = false;
   $('seek').oninput  = () => { seeking = true; };
@@ -1360,6 +1396,52 @@ function bind() {
     toast('Playlist deleted');
   };
 
+  // settings
+  $('btnSettings').onclick     = () => goTo('settings');
+  $('btnSettingsBack').onclick = () => goTo(state.lastTab);
+
+  $('setName').onchange = (e) => savePersonalInfo({ name: e.target.value.trim() });
+  $('setDob').onchange  = (e) => savePersonalInfo({ dob: e.target.value });
+  el('#setGender').onclick = (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    paintSegmented('setGender', btn.dataset.value);
+    savePersonalInfo({ gender: btn.dataset.value });
+  };
+  el('#setTheme').onclick = (e) => {
+    const btn = e.target.closest('button');
+    if (btn) setTheme(btn.dataset.value);
+  };
+
+  $('btnDeletePlaylists').onclick = async () => {
+    if (!state.playlists.length) { toast('No playlists to delete.'); return; }
+    const ok = await confirmDialog('Delete all playlists?',
+      '<p>Every playlist will be deleted. The songs themselves stay in your music folder.</p>',
+      'Delete all playlists');
+    if (!ok) return;
+    for (const p of state.playlists) await dbDel('playlists', p.id);
+    state.playlists = [];
+    closePlaylist();
+    renderPlaylists();
+    toast('All playlists deleted');
+  };
+  $('btnDeletePersonalInfo').onclick = async () => {
+    const ok = await confirmDialog('Delete personal info?',
+      '<p>Your name, gender, and date of birth will be cleared.</p>', 'Delete personal info');
+    if (!ok) return;
+    await dbDel('meta', 'personalInfo');
+    renderSettings();
+    toast('Personal info deleted');
+  };
+  $('btnCopyShare').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(APP_SHARE_URL);
+      toast('Link copied');
+    } catch {
+      toast('Could not copy — select and copy the link manually.');
+    }
+  };
+
   // modal backdrop click closes
   $('modalBackdrop').onclick = (e) => {
     if (e.target === $('modalBackdrop')) $('modalBackdrop').hidden = true;
@@ -1400,7 +1482,6 @@ function bind() {
 
 function setVolume(v) {
   audio.volume = Math.min(1, Math.max(0, v));
-  $('volume').value = Math.round(audio.volume * 100);
 }
 
 /* ---------------------------------------------------------
@@ -1411,7 +1492,9 @@ function setVolume(v) {
   bind();
   await ensurePersistence();      // claim durable storage before anything else
   document.body.classList.add('no-mini');
+  applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
   paintPlayIcon();
+  paintRepeatIcon();
   goTo('player');
   await restoreFolder();
 

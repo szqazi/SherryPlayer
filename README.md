@@ -53,9 +53,10 @@ Once installed the app shell is cached, so it opens and plays with no connection
 
 ## The three tabs
 
-**Player** — cover art, song name, artist, a seek bar, and the transport controls:
-previous, rewind 10s, play/pause, stop, forward 10s, next. Plus shuffle, repeat
-(off / all / one), volume, and the upcoming queue.
+**Player** — song name, artist, and where it's playing from (library or playlist), a seek
+bar, and the transport controls: previous, rewind 10s, play/pause, stop, forward 10s, next.
+Plus a repeat icon (off / all / one — defaults to all) and the upcoming queue. No cover art,
+shuffle, or volume slider.
 
 **Library** — every song in your folder.
 - Click a song to play it (the whole library becomes the queue)
@@ -67,8 +68,16 @@ previous, rewind 10s, play/pause, stop, forward 10s, next. Plus shuffle, repeat
 - The filter box narrows by song or artist, and **Play all** queues what's showing
 
 **Playlists** — all your playlists with song counts. Click one to open it, where you can play it,
-add songs from your library, reorder with the arrows, remove songs, rename, or delete the
-playlist. Deleting a playlist never touches the actual files.
+add songs from your library, reorder with the arrows, remove songs (with confirmation), rename,
+or delete the playlist. Deleting a playlist never touches the actual files.
+
+## Settings
+
+The gear icon (top right, on every screen) opens Settings:
+- **Personal info** — name, gender, date of birth
+- **App settings** — Dark / Light theme toggle
+- **Delete** — delete all playlists, or delete personal info (both ask for confirmation)
+- **About** — app version, developer, and a copyable link to the live app for sharing
 
 ## Keyboard
 

@@ -4,9 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Sherry Player</title>
+<script>
+  // Applied before first paint so a saved Light theme never flashes dark.
+  try {
+    if (localStorage.getItem('sherryplayer-theme') === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  } catch (e) {}
+</script>
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0c0d10">
+<meta name="theme-color" content="#0c0d10" id="metaThemeColor">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -24,11 +32,6 @@
     <!-- ---------- PLAYER ---------- -->
     <section class="screen" id="screen-player">
       <div class="player-wrap">
-        <div class="art" id="playerArt">
-          <svg viewBox="0 0 24 24" class="art-fallback"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
-          <img id="playerArtImg" alt="">
-        </div>
-
         <div class="now-meta">
           <div class="now-title" id="nowTitle">Nothing playing</div>
           <div class="now-artist" id="nowArtist">Pick a song from your Library</div>
@@ -64,12 +67,10 @@
         </div>
 
         <div class="controls-2">
-          <button class="chip" id="btnShuffle" aria-pressed="false">Shuffle</button>
-          <button class="chip" id="btnRepeat" data-mode="off">Repeat: Off</button>
-          <label class="vol">
-            <svg viewBox="0 0 24 24" class="vol-icon"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4 4 0 0 0-2.2-3.6v7.2A4 4 0 0 0 16.5 12z"/></svg>
-            <input type="range" id="volume" min="0" max="100" value="100" aria-label="Volume">
-          </label>
+          <button class="repeat-btn" id="btnRepeat" data-mode="all" title="Repeat" aria-label="Repeat">
+            <svg viewBox="0 0 24 24"><path d="M7 7h8v3l4-4-4-4v3H5v6h2V7zm10 10H9v-3l-4 4 4 4v-3h10v-6h-2v4z"/></svg>
+            <span class="repeat-one-badge">1</span>
+          </button>
         </div>
 
         <div class="queue-box">
@@ -150,6 +151,55 @@
       </div>
     </section>
 
+    <!-- ---------- SETTINGS ---------- -->
+    <section class="screen" id="screen-settings" hidden>
+      <div class="detail-head">
+        <button class="btn btn-sm" id="btnSettingsBack">‹ Back</button>
+      </div>
+      <div class="screen-head">
+        <h1>Settings</h1>
+      </div>
+
+      <h2 class="settings-h2">Personal info</h2>
+      <div class="field"><label>Name</label><input id="setName" placeholder="Your name" autocomplete="off"></div>
+      <div class="field">
+        <label>Gender</label>
+        <div class="segmented" id="setGender">
+          <button type="button" data-value="male">Male</button>
+          <button type="button" data-value="female">Female</button>
+        </div>
+      </div>
+      <div class="field"><label>Date of birth</label><input type="date" id="setDob"></div>
+
+      <h2 class="settings-h2">App settings</h2>
+      <div class="field">
+        <label>Theme</label>
+        <div class="segmented" id="setTheme">
+          <button type="button" data-value="dark">Dark</button>
+          <button type="button" data-value="light">Light</button>
+        </div>
+      </div>
+
+      <h2 class="settings-h2">Delete</h2>
+      <div class="toolbar">
+        <button class="btn btn-danger" id="btnDeletePlaylists">Delete all playlists</button>
+        <button class="btn btn-danger" id="btnDeletePersonalInfo">Delete personal info</button>
+      </div>
+
+      <h2 class="settings-h2">About</h2>
+      <ul class="about-list">
+        <li><span class="about-label">App version</span><span id="aboutVersion" class="about-value"></span></li>
+        <li><span class="about-label">Developer</span><span id="aboutDeveloper" class="about-value"></span></li>
+      </ul>
+      <div class="field">
+        <label>Share app</label>
+        <div class="share-row">
+          <input id="aboutShareUrl" readonly>
+          <button class="btn btn-sm" id="btnCopyShare">Copy</button>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- ============ MINI BAR ============ -->
@@ -170,6 +220,11 @@
       <svg viewBox="0 0 24 24"><path d="M15.8 5H18v14h-2.2zM4 5l10.6 7L4 19z"/></svg>
     </button>
   </div>
+
+  <!-- ============ SETTINGS BUTTON ============ -->
+  <button id="btnSettings" class="settings-fab" aria-label="Settings" title="Settings">
+    <svg viewBox="0 0 24 24"><path d="M19.4 13a7.4 7.4 0 0 0 .1-1 7.4 7.4 0 0 0-.1-1l2.1-1.6a.5.5 0 0 0 .1-.7l-2-3.4a.5.5 0 0 0-.6-.2l-2.5 1a7.6 7.6 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4l-.4 2.6a7.6 7.6 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.4a.5.5 0 0 0 .1.7L4.5 11a7.4 7.4 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.7l2 3.4a.5.5 0 0 0 .6.2l2.5-1a7.6 7.6 0 0 0 1.7 1l.4 2.6a.5.5 0 0 0 .5.4h4a.5.5 0 0 0 .5-.4l.4-2.6a7.6 7.6 0 0 0 1.7-1l2.5 1a.5.5 0 0 0 .6-.2l2-3.4a.5.5 0 0 0-.1-.7L19.4 13zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>
+  </button>
 
   <!-- ============ BOTTOM NAV ============ -->
   <nav id="tabbar">
