@@ -172,7 +172,7 @@ input[type=range]:hover::-webkit-slider-thumb { background: var(--accent); }
 
 .controls {
   display: flex; align-items: center; justify-content: center;
-  gap: 6px; margin: 14px 0 4px;
+  gap: 16px; margin: 14px 0 4px;
 }
 .ctrl {
   background: none; border: none; cursor: pointer;
@@ -184,11 +184,15 @@ input[type=range]:hover::-webkit-slider-thumb { background: var(--accent); }
 .ctrl:hover { background: var(--bg-3); }
 .ctrl:hover svg { fill: var(--text); }
 .ctrl:active { transform: scale(.92); }
+
+/* Rewind/forward: at least double the repeat row's icon size. */
+.ctrl-lg { width: 72px; height: 72px; }
+.ctrl-lg svg { width: 40px; height: 40px; }
+
 .ctrl-main {
-  width: 60px; height: 60px; background: var(--accent);
-  margin: 0 6px;
+  width: 96px; height: 96px; background: var(--accent);
 }
-.ctrl-main svg { width: 25px; height: 25px; fill: #06240f; }
+.ctrl-main svg { width: 46px; height: 46px; fill: #06240f; }
 .ctrl-main:hover { background: var(--accent-dk); }
 .ctrl-main:hover svg { fill: #06240f; }
 
