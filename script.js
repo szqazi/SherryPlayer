@@ -1508,5 +1508,13 @@ function setVolume(v) {
   if ('serviceWorker' in navigator) {
     // Only registers on https:// or localhost; harmless everywhere else.
     navigator.serviceWorker.register('sw.js').catch(() => {});
+    // When a new service worker takes over (a fresh deploy), reload once so
+    // the page you're looking at matches the version that just activated.
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloaded) return;
+      reloaded = true;
+      location.reload();
+    });
   }
 })();

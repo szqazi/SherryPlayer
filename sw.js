@@ -2,7 +2,7 @@
    Caches the app shell so the player opens with no network at all.
    Your songs are not cached here -- they live in IndexedDB. */
 
-const CACHE = 'sherry-player-v3';
+const CACHE = 'sherry-player-v4';
 
 const SHELL = [
   './',
@@ -38,25 +38,18 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   if (new URL(req.url).origin !== self.location.origin) return;
 
-  // Cache first: the shell rarely changes and offline must always work.
+  // Network first: whenever you're online you get the shell you just
+  // deployed, not a stale cached copy. Offline falls back to the cache,
+  // which is what keeps the app usable with no connection at all.
   e.respondWith(
-    caches.match(req).then(hit => {
-      if (hit) {
-        // Refresh in the background for next launch.
-        fetch(req).then(res => {
-          if (res && res.ok) caches.open(CACHE).then(c => c.put(req, res.clone()));
-        }).catch(() => {});
-        return hit;
-      }
-      return fetch(req)
-        .then(res => {
-          if (res && res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE).then(c => c.put(req, copy));
-          }
-          return res;
-        })
-        .catch(() => caches.match('./index.html'));
-    })
+    fetch(req)
+      .then(res => {
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(req, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(req).then(hit => hit || caches.match('./index.html')))
   );
 });
