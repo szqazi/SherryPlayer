@@ -7,3 +7,6 @@ desktop.ini
 
 # Music files, in case any ever land in this folder
 *.mp3
+
+# ...except the bundled starter library, which ships with the app
+!starter-songs/*.mp3

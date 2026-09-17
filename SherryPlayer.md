@@ -90,6 +90,22 @@ The app runs in two modes and picks the right one automatically based on browser
 
 ---
 
+### Starter Library
+
+The app can ship with a bundled set of songs (see `starter-songs/`) so it isn't empty on first
+open.
+
+- On first launch, if no folder has ever been connected and the library is empty, the app fetches
+  `starter-songs/manifest.json` (a JSON array of filenames) and imports each listed MP3 through
+  the same path as **Add songs**.
+- Runs at most once, ever — tracked by a flag in IndexedDB. Deleting the starter songs afterward
+  does not bring them back; connecting a real folder first skips seeding entirely.
+- If `starter-songs/manifest.json` isn't present (no starter library bundled) or the device is
+  offline on that first launch, nothing happens and it's retried on a later launch instead of
+  being permanently skipped.
+
+---
+
 ### Playlists Tab
 
 - Index view: grid of all playlists with their song counts. **New playlist** creates one.

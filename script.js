@@ -292,6 +292,46 @@ async function importFiles(fileList) {
   if (failed) toast(`${failed} file${failed === 1 ? '' : 's'} could not be imported.`);
 }
 
+/**
+ * First-launch only: pulls the bundled starter songs (see starter-songs/)
+ * into the library, so the app isn't empty out of the box. Runs once ever —
+ * skipped for good after the first attempt, even if the person then deletes
+ * every song, and skipped entirely if a real folder is already connected.
+ */
+async function seedStarterLibrary() {
+  // No starter-songs/manifest.json shipped (yet), or offline — leave the flag
+  // unset so this is retried on a later launch instead of being skipped forever.
+  let res;
+  try {
+    res = await fetch('starter-songs/manifest.json');
+  } catch {
+    return;
+  }
+  if (!res.ok) return;
+
+  let names;
+  try { names = await res.json(); } catch { return; }
+  if (!Array.isArray(names) || !names.length) return;
+
+  // From here on it's a genuine attempt: mark it done even on partial
+  // failure, so a couple of missing files don't retry importing forever.
+  try {
+    showScan('Loading starter songs…', 0, '');
+    const files = [];
+    for (let i = 0; i < names.length; i++) {
+      showScan('Loading starter songs…', i / names.length, names[i]);
+      try {
+        const r = await fetch(`starter-songs/${encodeURIComponent(names[i])}`);
+        if (r.ok) files.push(new File([await r.blob()], names[i], { type: 'audio/mpeg' }));
+      } catch { /* skip this one, keep going */ }
+    }
+    hideScan();
+    if (files.length) await importFiles(files);
+  } finally {
+    await dbPut('meta', true, 'starterSeeded');
+  }
+}
+
 async function refreshUsage() {
   if (!navigator.storage || !navigator.storage.estimate) { state.usage = ''; return; }
   try {
@@ -1496,6 +1536,10 @@ function setVolume(v) {
   paintRepeatIcon();
   goTo('player');
   await restoreFolder();
+
+  if (!state.dirHandle && !state.tracks.length && !(await dbGet('meta', 'starterSeeded'))) {
+    await seedStarterLibrary();
+  }
 
   if (!hasFSAccess) {
     $('libraryEmpty').innerHTML =
