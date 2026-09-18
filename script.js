@@ -66,7 +66,9 @@ const state = {
   artUrl:      null,
   openPlaylist: null,
   filter:      '',
-  lastTab:     'player'   // last non-settings screen, so the settings back button knows where to return
+  lastTab:     'player',  // last non-settings screen, so the settings back button knows where to return
+  screen:      'player',  // the screen currently showing
+  hasTrack:    false      // has a track ever been loaded (gates the mini player bar)
 };
 
 const audio = document.getElementById('audio');
@@ -719,8 +721,8 @@ async function paintNowPlaying(track) {
   $('nowSource').textContent = state.source || '';
   $('miniTitle').textContent  = track.title;
   $('miniArtist').textContent = track.artist;
-  $('minibar').hidden = false;
-  document.body.classList.remove('no-mini');
+  state.hasTrack = true;
+  updateMinibar();
   document.title = `${track.title} — Sherry Player`;
 
   if (state.artUrl) { URL.revokeObjectURL(state.artUrl); state.artUrl = null; }
@@ -1356,9 +1358,19 @@ function goTo(screen) {
   });
   document.querySelectorAll('.tab').forEach(b =>
     b.classList.toggle('is-active', b.dataset.screen === screen));
+  state.screen = screen;
   if (screen !== 'settings') state.lastTab = screen;
   else renderSettings();
+  updateMinibar();
   $('main').scrollTop = 0;
+}
+
+/** The mini player bar only makes sense where the Player screen isn't
+ *  already showing full transport controls — i.e. Library and Playlists. */
+function updateMinibar() {
+  const show = state.hasTrack && (state.screen === 'library' || state.screen === 'playlists');
+  $('minibar').hidden = !show;
+  document.body.classList.toggle('no-mini', !show);
 }
 
 /* ---------------------------------------------------------
@@ -1567,7 +1579,6 @@ function setVolume(v) {
   db = await openDB();
   bind();
   await ensurePersistence();      // claim durable storage before anything else
-  document.body.classList.add('no-mini');
   applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
   paintPlayIcon();
   paintRepeatIcon();
