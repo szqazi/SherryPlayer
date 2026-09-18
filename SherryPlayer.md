@@ -74,8 +74,6 @@ The app runs in two modes and picks the right one automatically based on browser
   - **Choose music folder** — opens the folder picker (desktop) and starts a scan.
   - **Add songs** — pick individual MP3 files to import/copy in.
   - **Rescan** — re-reads the connected folder to pick up files added/removed outside the app.
-  - **Back up** — exports the library (songs, metadata edits, playlists) to a file.
-  - **Restore** — re-imports a previously exported backup.
 - Search box filters the list live by song name or artist.
 - **Play all** queues everything currently shown by the filter.
 - A song that came from the bundled starter library shows a small box icon before its title
@@ -136,6 +134,15 @@ before. All fields save immediately (no separate Save button) and confirm with a
 - **App settings** — Theme toggle, Dark / Light. Applied instantly and persisted in
   `localStorage`, with an inline pre-paint script so a saved Light theme never flashes dark on
   load.
+- **Backup**:
+  - **Back up** — exports playlists and any song-name/artist edits to a JSON file. Does **not**
+    include the audio itself.
+  - **Restore** — re-imports that file: re-creates playlists that don't already exist (matched
+    by internal ID), and re-applies title/artist edits to songs already in the library (matched
+    by filename).
+  - Intended for carrying your playlists/edits between browsers or devices, or recovering them
+    after clearing site data — the songs themselves still come from your connected folder
+    (desktop) or a re-import (mobile).
 - **Delete** (both require confirmation):
   - **Delete all playlists** — clears every playlist; the songs themselves are untouched.
   - **Delete personal info** — clears name, gender, and date of birth.
@@ -143,16 +150,6 @@ before. All fields save immediately (no separate Save button) and confirm with a
   - App version
   - Developer
   - **Share app** — the live GitHub Pages URL, with a **Copy** button.
-
----
-
-### Backup / Restore
-
-- **Back up** exports the library database (song metadata, edits, playlists — and on Android,
-  the audio itself) to a portable file the user saves.
-- **Restore** re-imports that file, with a progress overlay while it processes.
-- Intended as the way to move a library between browsers/devices, or recover after clearing
-  site data.
 
 ---
 

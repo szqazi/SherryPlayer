@@ -76,6 +76,8 @@ or delete the playlist. Deleting a playlist never touches the actual files.
 The gear icon (top right, on every screen) opens Settings:
 - **Personal info** — name, gender, date of birth
 - **App settings** — Dark / Light theme toggle
+- **Backup** — **Back up** exports your playlists and any song-name/artist edits to a file
+  (not the audio itself); **Restore** re-imports one
 - **Delete** — delete all playlists, or delete personal info (both ask for confirmation)
 - **About** — app version, developer, and a copyable link to the live app for sharing
 
