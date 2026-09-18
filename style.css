@@ -189,6 +189,10 @@ input[type=range]:hover::-webkit-slider-thumb { background: var(--accent); }
 .ctrl-lg { width: 72px; height: 72px; }
 .ctrl-lg svg { width: 40px; height: 40px; }
 
+/* Prev/next: same size as play/pause. */
+.ctrl-xl { width: 96px; height: 96px; }
+.ctrl-xl svg { width: 46px; height: 46px; }
+
 .ctrl-main {
   width: 96px; height: 96px; background: var(--accent);
 }
