@@ -1366,9 +1366,9 @@ function goTo(screen) {
 }
 
 /** The mini player bar only makes sense where the Player screen isn't
- *  already showing full transport controls — i.e. Library and Playlists. */
+ *  already showing full transport controls — i.e. everywhere else. */
 function updateMinibar() {
-  const show = state.hasTrack && (state.screen === 'library' || state.screen === 'playlists');
+  const show = state.hasTrack && state.screen !== 'player';
   $('minibar').hidden = !show;
   document.body.classList.toggle('no-mini', !show);
 }

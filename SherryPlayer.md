@@ -11,9 +11,10 @@ Three tabs at the bottom: **Player**, **Library**, **Playlists**. A gear icon, f
 top right on every screen, opens **Settings**.
 
 - Default (home) tab on launch is **Player**.
-- A **mini player bar** stays visible above the tab bar on the Library/Playlists tabs whenever
-  a song is loaded, showing a small thumbnail, title, artist, and prev/play-pause/next — so
-  playback is never out of reach while browsing.
+- A **mini player bar** stays visible above the tab bar on every screen except Player (which
+  already has full transport controls) whenever a song is loaded — Library, Playlists, and
+  Settings — showing a small thumbnail, title, artist, and prev/play-pause/next, so playback is
+  never out of reach while browsing.
 
 ---
 
