@@ -427,6 +427,26 @@ input[type=range]:hover::-webkit-slider-thumb { background: var(--accent); }
   background: var(--bg-2); border: 1px solid var(--line);
   border-radius: 14px; padding: 22px 24px; width: 100%; max-width: 360px;
 }
+.scan-eq {
+  display: flex; align-items: flex-end; justify-content: center;
+  gap: 5px; height: 40px; margin-bottom: 16px;
+}
+.scan-eq span {
+  width: 6px; min-height: 6px; border-radius: 3px;
+  background: var(--accent); animation: eqBounce 1.1s ease-in-out infinite;
+}
+.scan-eq span:nth-child(1) { animation-delay: 0s;    }
+.scan-eq span:nth-child(2) { animation-delay: .12s;  }
+.scan-eq span:nth-child(3) { animation-delay: .24s;  }
+.scan-eq span:nth-child(4) { animation-delay: .36s;  }
+.scan-eq span:nth-child(5) { animation-delay: .48s;  }
+@keyframes eqBounce {
+  0%, 100% { height: 6px; }
+  50%      { height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scan-eq span { animation: none; height: 22px; }
+}
 .scan-title { font-size: 15px; font-weight: 600; margin-bottom: 14px; }
 .scan-bar { height: 5px; background: #2b303a; border-radius: 3px; overflow: hidden; }
 .scan-fill { height: 100%; width: 0; background: var(--accent); transition: width .15s; }

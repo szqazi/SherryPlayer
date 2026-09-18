@@ -97,15 +97,21 @@ The app can ship with a bundled set of songs (see `starter-songs/`) so it isn't 
 open.
 
 - On first launch, if no folder has ever been connected and the library is empty, the app fetches
-  `starter-songs/manifest.json` and imports the listed MP3s the same way **Add songs** does.
+  `starter-songs/manifest.json` and — if it lists any songs — asks first: a modal states the song
+  and playlist counts, with **Not now** / **Get songs** buttons. Declining is remembered just
+  like accepting; it isn't asked again.
+- On accept, songs download and import the same way **Add songs** does, with an animated
+  equalizer overlay (bouncing bars) plus a progress bar and the current filename, instead of a
+  bare progress bar.
 - The manifest is organized by subfolder: `[{ "name": "Chill", "files": ["a.mp3", "b.mp3"] }, …]`,
   with files at `starter-songs/<name>/<file>`. Each subfolder becomes both a set of imported
   songs and a playlist named after that folder.
-- Runs at most once, ever — tracked by a flag in IndexedDB. Deleting the starter songs afterward
-  does not bring them back; connecting a real folder first skips seeding entirely.
-- If `starter-songs/manifest.json` isn't present (no starter library bundled) or the device is
-  offline on that first launch, nothing happens and it's retried on a later launch instead of
-  being permanently skipped.
+- Asked at most once, ever — tracked by a flag in IndexedDB, set whether the offer is accepted
+  or declined. Deleting the starter songs afterward does not bring them back or re-prompt;
+  connecting a real folder first skips the offer entirely.
+- If `starter-songs/manifest.json` isn't present (no starter library bundled), lists no songs,
+  or the device is offline on that first launch, nothing happens and it's retried on a later
+  launch instead of being permanently skipped.
 
 ---
 

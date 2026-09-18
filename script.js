@@ -295,12 +295,12 @@ async function importFiles(fileList) {
 }
 
 /**
- * First-launch only: pulls the bundled starter songs (see starter-songs/)
- * into the library, so the app isn't empty out of the box. Each entry in
- * the manifest is one subfolder; its songs are imported and also grouped
- * into a playlist named after that folder. Runs once ever — skipped for
- * good after the first attempt, even if the person then deletes every
- * song, and skipped entirely if a real folder is already connected.
+ * First-launch only: offers the bundled starter songs (see starter-songs/),
+ * so the app isn't empty out of the box. Each entry in the manifest is one
+ * subfolder; its songs are imported and also grouped into a playlist named
+ * after that folder. Asked at most once, ever — whether accepted or
+ * declined — tracked by a flag in IndexedDB. Skipped entirely if a real
+ * folder is already connected.
  *
  * manifest.json shape: [{ "name": "Chill", "files": ["a.mp3", "b.mp3"] }, …]
  * with files at starter-songs/<name>/<file>.
@@ -318,26 +318,42 @@ async function seedStarterLibrary() {
 
   let manifest;
   try { manifest = await res.json(); } catch { return; }
-  if (!Array.isArray(manifest) || !manifest.length) return;
+  if (!Array.isArray(manifest)) return;
+  const groups = manifest.filter(g => g && g.name && Array.isArray(g.files) && g.files.length);
+  const total = groups.reduce((n, g) => n + g.files.length, 0);
+  if (!total) return;
 
-  // From here on it's a genuine attempt: mark it done even on partial
-  // failure, so a few missing files don't retry importing forever.
+  // From here it's a genuine offer: mark it done regardless of the answer,
+  // so this is asked at most once.
   try {
+    const wantsIt = await new Promise(resolve => {
+      openModal({
+        title: 'Add the starter song kit?',
+        body: `<p>Get ${total} song${total === 1 ? '' : 's'} across ${groups.length}
+               playlist${groups.length === 1 ? '' : 's'} to start with, so the app isn't empty.
+               One-time download — you're free to remove them later.</p>
+               <p class="hint">You can skip this and add your own songs instead.</p>`,
+        buttons: [
+          { label: 'Not now', onClick: (c) => { c(); resolve(false); } },
+          { label: 'Get songs', cls: 'btn-primary', onClick: (c) => { c(); resolve(true); } }
+        ]
+      });
+    });
+    if (!wantsIt) return;
+
     await ensurePersistence();
-    showScan('Loading starter songs…', 0, '');
+    showScan('Loading starter songs…', 0, '', { music: true });
 
     const taken = new Set((await dbAll('tracks')).map(t => t.path));
-    const list = [];         // [{ path, file: Blob }] for ingest()
-    const groups = [];       // [{ name, paths: [] }] — one playlist per folder
-    const total = manifest.reduce((n, g) => n + (Array.isArray(g.files) ? g.files.length : 0), 0);
+    const list = [];              // [{ path, file: Blob }] for ingest()
+    const playlistPaths = [];     // [{ name, paths: [] }] — one playlist per folder
     let i = 0;
 
-    for (const g of manifest) {
-      if (!g || !g.name || !Array.isArray(g.files)) continue;
+    for (const g of groups) {
       const paths = [];
       for (const filename of g.files) {
         i++;
-        showScan('Loading starter songs…', i / (total || 1), `${g.name}/${filename}`);
+        showScan('Loading starter songs…', i / total, `${g.name}/${filename}`, { music: true });
         try {
           const r = await fetch(`starter-songs/${encodeURIComponent(g.name)}/${encodeURIComponent(filename)}`);
           if (!r.ok) continue;
@@ -350,7 +366,7 @@ async function seedStarterLibrary() {
           paths.push(path);
         } catch { /* skip this file, keep going */ }
       }
-      if (paths.length) groups.push({ name: g.name, paths });
+      if (paths.length) playlistPaths.push({ name: g.name, paths });
     }
 
     hideScan();
@@ -359,7 +375,7 @@ async function seedStarterLibrary() {
     state.mode = 'stored';
     await ingest(list, { merge: true, source: 'starter' });
 
-    for (const g of groups) {
+    for (const g of playlistPaths) {
       const p = { id: crypto.randomUUID(), name: g.name, paths: g.paths, createdAt: Date.now(), updatedAt: Date.now() };
       await dbPut('playlists', p);
       state.playlists.push(p);
@@ -1340,8 +1356,9 @@ function addToPlaylistDialog(track) {
 /* ---------------------------------------------------------
    9. Overlays
 --------------------------------------------------------- */
-function showScan(title, ratio, sub) {
+function showScan(title, ratio, sub, { music = false } = {}) {
   $('scanOverlay').hidden = false;
+  $('scanEq').hidden = !music;
   $('scanTitle').textContent = title;
   $('scanFill').style.width = `${Math.round(ratio * 100)}%`;
   $('scanSub').textContent = sub || '';
