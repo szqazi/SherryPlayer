@@ -9,4 +9,4 @@ desktop.ini
 *.mp3
 
 # ...except the bundled starter library, which ships with the app
-!starter-songs/*.mp3
+!starter-songs/**/*.mp3
