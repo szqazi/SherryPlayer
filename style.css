@@ -253,6 +253,10 @@ input[type=range]:hover::-webkit-slider-thumb { background: var(--accent); }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .track.playing .track-title { color: var(--accent); }
+.src-badge {
+  display: inline-flex; vertical-align: -2px; margin-right: 5px;
+}
+.src-badge svg { width: 13px; height: 13px; fill: #8b93f0; }
 .track-dur { font-size: 12px; color: var(--muted); flex: none; font-variant-numeric: tabular-nums; }
 .track-actions { display: flex; gap: 2px; flex: none; }
 .icon-btn {

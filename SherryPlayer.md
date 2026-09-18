@@ -78,6 +78,8 @@ The app runs in two modes and picks the right one automatically based on browser
   - **Restore** — re-imports a previously exported backup.
 - Search box filters the list live by song name or artist.
 - **Play all** queues everything currently shown by the filter.
+- A song that came from the bundled starter library shows a small box icon before its title
+  (both here and in playlist detail views), so it reads apart from songs added personally.
 - Per-song row actions:
   - Click the row to play it (the whole visible library becomes the queue).
   - **+** — add the song to a playlist.

@@ -357,7 +357,7 @@ async function seedStarterLibrary() {
     if (!list.length) return;
 
     state.mode = 'stored';
-    await ingest(list, { merge: true });
+    await ingest(list, { merge: true, source: 'starter' });
 
     for (const g of groups) {
       const p = { id: crypto.randomUUID(), name: g.name, paths: g.paths, createdAt: Date.now(), updatedAt: Date.now() };
@@ -483,7 +483,7 @@ async function scanFolder({ quiet = false } = {}) {
  * Tracks whose size + timestamp are unchanged are left alone, so
  * metadata you edited by hand survives a rescan.
  */
-async function ingest(list, { quiet = false, merge = false } = {}) {
+async function ingest(list, { quiet = false, merge = false, source = null } = {}) {
   const known = new Map((await dbAll('tracks')).map(t => [t.path, t]));
   const seen  = new Set();
   const fresh = [];
@@ -516,7 +516,8 @@ async function ingest(list, { quiet = false, merge = false } = {}) {
       size:         file.size,
       lastModified: file.lastModified,
       hasArt:       !!tags.art,
-      addedAt:      prev ? prev.addedAt : Date.now()
+      addedAt:      prev ? prev.addedAt : Date.now(),
+      source:       source || (prev ? prev.source : null)   // 'starter' or null (personal)
     };
     fresh.push(rec);
     writes.push(rec);
@@ -813,8 +814,15 @@ const ICONS = {
   down:   '<svg viewBox="0 0 24 24"><path d="M12 18L5 10h14z"/></svg>',
   minus:  '<svg viewBox="0 0 24 24"><path d="M5 11h14v2H5z"/></svg>',
   note:   '<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>',
-  chev:   '<svg viewBox="0 0 24 24" class="pl-chev"><path d="M9 5l7 7-7 7z"/></svg>'
+  chev:   '<svg viewBox="0 0 24 24" class="pl-chev"><path d="M9 5l7 7-7 7z"/></svg>',
+  box:    '<svg viewBox="0 0 24 24"><path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.24L19 8l-7 3.5L5 8l7-3.76zM4 9.6l7 3.5v7.7l-7-3.5V9.6zm9 11.2v-7.7l7-3.5v7.7l-7 3.5z"/></svg>'
 };
+
+/** Small inline badge marking a song that came from the bundled starter
+ *  library, so it reads apart from songs the person added themselves. */
+const srcBadge = (t) => t.source === 'starter'
+  ? `<span class="src-badge" title="From the bundled starter library">${ICONS.box}</span>`
+  : '';
 
 function renderAll() {
   renderLibrary();
@@ -869,7 +877,7 @@ function renderLibrary() {
     li.innerHTML = `
       <span class="track-num">${i + 1}</span>
       <div class="track-main">
-        <div class="track-title">${escapeHtml(t.title)}</div>
+        <div class="track-title">${srcBadge(t)}${escapeHtml(t.title)}</div>
         <div class="track-artist">${escapeHtml(t.artist)}</div>
       </div>
       <span class="track-dur">${fmtTime(t.duration)}</span>
@@ -969,7 +977,7 @@ function renderPlaylistDetail() {
     li.innerHTML = `
       <span class="track-num">${i + 1}</span>
       <div class="track-main">
-        <div class="track-title">${escapeHtml(t.title)}</div>
+        <div class="track-title">${srcBadge(t)}${escapeHtml(t.title)}</div>
         <div class="track-artist">${escapeHtml(t.artist)}</div>
       </div>
       <span class="track-dur">${fmtTime(t.duration)}</span>
