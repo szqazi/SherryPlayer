@@ -1619,8 +1619,9 @@ function bind() {
     navigator.mediaSession.setActionHandler('stop',           stopPlayback);
     navigator.mediaSession.setActionHandler('nexttrack',      () => nextTrack());
     navigator.mediaSession.setActionHandler('previoustrack',  prevTrack);
-    navigator.mediaSession.setActionHandler('seekbackward',   () => seekBy(-10));
-    navigator.mediaSession.setActionHandler('seekforward',    () => seekBy(10));
+    // seekbackward/seekforward are deliberately left unregistered: some
+    // platforms show those instead of previous/next on the lock screen when
+    // both are available, and previous/next is the more useful pair there.
   }
 }
 
