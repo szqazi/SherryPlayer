@@ -68,7 +68,9 @@ const state = {
   filter:      '',
   lastTab:     'player',  // last non-settings screen, so the settings back button knows where to return
   screen:      'player',  // the screen currently showing
-  hasTrack:    false      // has a track ever been loaded (gates the mini player bar)
+  hasTrack:    false,     // has a track ever been loaded (gates the mini player bar)
+  preload:     null       // { path, file } — the next track's data, fetched ahead of time so
+                           // auto-advance doesn't stall on an async read while the screen is locked
 };
 
 const audio = document.getElementById('audio');
@@ -710,7 +712,13 @@ async function playIndex(i) {
   const track = trackByPath(path);
   if (!track) return;
 
-  const file = await getFile(path).catch(() => null);
+  let file;
+  if (state.preload && state.preload.path === path) {
+    file = state.preload.file;         // already in hand — no async gap before play()
+    state.preload = null;
+  } else {
+    file = await getFile(path).catch(() => null);
+  }
   if (!file) {
     toast('That file is not reachable. Reconnect your music folder.');
     showReconnectBanner();
@@ -730,6 +738,29 @@ async function playIndex(i) {
   renderLibrary();
   renderQueue();
   renderPlaylistDetail();
+  prefetchNext();
+}
+
+/**
+ * Fetches the data for whichever track would play next, ahead of time, so
+ * the auto-advance-on-`ended` handler can call audio.play() immediately
+ * instead of waiting on an async read. That gap is what stalls auto-advance
+ * when the screen is locked and the browser throttles background work.
+ * Best-effort: if the queue changes before this resolves, playIndex just
+ * falls back to fetching normally.
+ */
+async function prefetchNext() {
+  let idx = state.orderPos + 1 < state.order.length ? state.order[state.orderPos + 1] : -1;
+  if (idx < 0 && state.repeat === 'all' && state.order.length) idx = state.order[0];
+  if (idx < 0) { state.preload = null; return; }
+
+  const path = state.queue[idx];
+  if (!path || (state.preload && state.preload.path === path)) return;
+
+  try {
+    const file = await getFile(path);
+    if (file) state.preload = { path, file };
+  } catch { /* best effort — playIndex will just fetch it itself */ }
 }
 
 async function paintNowPlaying(track) {

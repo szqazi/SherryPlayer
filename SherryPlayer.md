@@ -63,6 +63,10 @@ The app runs in two modes and picks the right one automatically based on browser
 - **Up next** queue list showing what's coming after the current track.
 - Integrates with the OS media session (lock-screen / notification controls, hardware media
   keys) via the Media Session API.
+- The next track's data is prefetched as soon as the current one starts, so auto-advance
+  (`ended` → next) never has to wait on an async read — this is what keeps playback advancing
+  reliably while the screen is locked, since mobile browsers throttle background JS/IndexedDB
+  work enough that an unprefetched read can stall indefinitely.
 
 ---
 
